@@ -21,4 +21,11 @@ urlpatterns = patterns('',
 
     # Uncomment the next line to enable the admin:
     url(r'^admin/', include(admin.site.urls)),
+
+    # API
+    url(r'^api/launch$', 'biocloudcentral.views.api_launch', name='api_launch'),
+    url(r'^api/get_images$', 'biocloudcentral.views.api_get_images', name='api_get_images'),
+    url(r'^api/get_cloud_types$', 'biocloudcentral.views.api_get_cloud_types', name='api_get_cloud_types'),
+    url(r'^api/get_instance_types$', 'biocloudcentral.views.api_get_instance_types', name='api_get_instance_types'),
+
 )

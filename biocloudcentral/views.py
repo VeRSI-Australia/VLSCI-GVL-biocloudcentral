@@ -1,7 +1,9 @@
 """Base views.
 """
 import logging
+import copy
 
+from django.views.decorators.csrf import csrf_exempt
 from django.http import HttpResponse
 from django.template import RequestContext
 from django.utils import simplejson
@@ -26,6 +28,122 @@ def home(request):
         return redirect("/launch")
     else:
         return redirect("https://biocloudcentral.herokuapp.com/launch")
+
+@csrf_exempt
+def api_get_cloud_types(request):
+    clouds = models.Cloud.objects.all()
+    cloud_array = []
+    for cloud in clouds:
+        cloud_hash = {
+                'id': cloud.id,
+                'name': cloud.name,
+                'cloud_type': cloud.cloud_type,
+                'region_name': cloud.region_name,
+                'bucket_default': cloud.bucket_default,
+                'region_endpoint': cloud.region_endpoint,
+                'ec2_port': cloud.ec2_port,
+                'ec2_conn_path': cloud.ec2_conn_path,
+                'cidr_range': cloud.cidr_range,
+                'is_secure': cloud.is_secure,
+                's3_host': cloud.s3_host,
+                's3_port': cloud.s3_port,
+                's3_conn_path': cloud.s3_conn_path,
+                }
+        cloud_array.append(cloud_hash)
+    result = HttpResponse(simplejson.dumps(cloud_array))
+    return result
+
+@csrf_exempt
+def api_get_instance_types(request):
+    instance_types = models.InstanceType.objects.all()
+    instance_type_array = []
+    for instance_type in instance_types:
+        instance_type_hash = {
+                'id': instance_type.id,
+                'cloud': str(instance_type.cloud),
+                'pretty_name': instance_type.pretty_name,
+                'tech_name': instance_type.tech_name,
+                'description': instance_type.description,
+                }
+        instance_type_array.append(instance_type_hash)
+    result = HttpResponse(simplejson.dumps(instance_type_array))
+    return result
+
+@csrf_exempt
+def api_get_images(request):
+    images = models.Image.objects.all()
+
+    image_array = []
+    for image in images:
+        image_hash = {
+                'id': image.id,
+                'description': image.description,
+                'cloud': str(image.cloud),
+                'image_id': image.image_id,
+                'default': image.default,
+                'kernel_id': image.kernel_id,
+                'ramdisk_id': image.ramdisk_id
+                }
+        image_array.append(image_hash)
+
+    result_json = simplejson.dumps(image_array) 
+
+    result = HttpResponse(result_json)
+    return result
+
+@csrf_exempt
+def api_launch(request):
+    params = copy.deepcopy(request.POST)
+    print params
+    ec2_error = None
+    cloud = models.Cloud.objects.get(id=params['cloud'])
+    params['cloud'] = cloud
+    try:
+        # Create security group & key pair used when starting an instance
+        ec2_conn = connect_ec2(params['access_key'],
+                               params['secret_key'],
+                               cloud)
+        sg_name = create_cm_security_group(ec2_conn, cloud)
+        kp_name, kp_material = create_key_pair(ec2_conn)
+    except EC2ResponseError, err:
+        ec2_error = err.error_message
+
+    if ec2_error is None:
+        params["kp_name"] = kp_name
+        params["kp_material"] = kp_material
+        params["sg_name"] = sg_name
+        params["cloud_type"] = cloud.cloud_type #"OpenStack" #cloud.cloud_type
+        params["cloud_name"] = cloud.name #"NeCTAR" #cloud.name
+        request.session["ec2data"] = params
+        if params['image_id']:
+            image = models.Image.objects.get(pk=params['image_id'])
+        else:
+            try:
+                image = models.Image.objects.get(cloud=params['cloud'], default=True)
+            except models.Image.DoesNotExist:
+                log.error("Cannot find an image to launch for cloud {0}".format(params['cloud']))
+                result = HttpResponse(simplejson.dumps("ERROR"))
+                return result
+
+        ec2_conn = connect_ec2(params["access_key"], params["secret_key"], cloud)
+        rs = run_instance(ec2_conn=ec2_conn,
+                      user_provided_data=params,
+                      image_id=image.image_id,
+                      kernel_id=image.kernel_id if image.kernel_id != '' else None,
+                      ramdisk_id=image.ramdisk_id if image.ramdisk_id != '' else None,
+                      key_name=params["kp_name"],
+                      security_groups=[params["sg_name"]])#,
+                      #placement=params['placement'])
+        ## TODO: Save usage file?
+        result_text = str(rs)
+
+
+    else:
+        result_text = ec2_error
+
+    result = HttpResponse(simplejson.dumps(result_text))
+    return result
+
 
 # ## CloudMan launch and configuration entry details
 def launch(request):
