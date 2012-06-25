@@ -30,7 +30,7 @@ def home(request):
         return redirect("https://biocloudcentral.herokuapp.com/launch")
 
 @csrf_exempt
-def api_get_cloud_types(request):
+def api_get_clouds(request):
     clouds = models.Cloud.objects.all()
     cloud_array = []
     for cloud in clouds:
@@ -92,11 +92,28 @@ def api_get_images(request):
     return result
 
 @csrf_exempt
+def api_get_regions(request):
+    cloud_name = request.GET.get('cloud_name', '')
+    access_key = request.GET.get('access_key', '')
+    secret_key = request.GET.get('secret_key', '')
+    instance_type = request.GET.get('instance_type', '')
+    regions = []
+    if (cloud_name != '' and access_key != '' and secret_key != '' and instance_type != ''):
+        cloud = models.Cloud.objects.get(name=cloud_name)
+        ec2_conn = connect_ec2(access_key, secret_key, cloud)
+        regions = _find_placement(ec2_conn, instance_type, cloud.cloud_type, get_all=True)
+        result_text = simplejson.dumps(regions)
+    else:
+        result_text = "{'error': 'Please provide correct parameters'}" #STUB
+    result = HttpResponse(result_text)
+    return result
+
+@csrf_exempt
 def api_launch(request):
     params = copy.deepcopy(request.POST)
     print params
     ec2_error = None
-    cloud = models.Cloud.objects.get(id=params['cloud'])
+    cloud = models.Cloud.objects.get(cloud_type=params['cloud'])
     params['cloud'] = cloud
     try:
         # Create security group & key pair used when starting an instance
