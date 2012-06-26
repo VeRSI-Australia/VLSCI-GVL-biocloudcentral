@@ -23,10 +23,10 @@ urlpatterns = patterns('',
     url(r'^admin/', include(admin.site.urls)),
 
     # API
-    url(r'^api/launch$', 'biocloudcentral.views.api_launch', name='api_launch'),
-    url(r'^api/get_images$', 'biocloudcentral.views.api_get_images', name='api_get_images'),
-    url(r'^api/get_clouds$', 'biocloudcentral.views.api_get_clouds', name='api_get_clouds'),
-    url(r'^api/get_instance_types$', 'biocloudcentral.views.api_get_instance_types', name='api_get_instance_types'),
-    url(r'^api/get_regions$', 'biocloudcentral.views.api_get_regions', name='api_get_regions'),
+    url(r'^api/launch$', 'biocloudcentral.api.api_launch', name='api_launch'),
+    url(r'^api/get_images$', 'biocloudcentral.api.api_get_images', name='api_get_images'),
+    url(r'^api/get_clouds$', 'biocloudcentral.api.api_get_clouds', name='api_get_clouds'),
+    url(r'^api/get_instance_types$', 'biocloudcentral.api.api_get_instance_types', name='api_get_instance_types'),
+    url(r'^api/get_regions$', 'biocloudcentral.api.api_get_regions', name='api_get_regions'),
 
 )
