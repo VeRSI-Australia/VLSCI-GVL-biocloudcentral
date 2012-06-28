@@ -102,7 +102,7 @@ def api_get_regions(request):
 @csrf_exempt
 def api_launch(request):
     params = copy.deepcopy(request.POST)
-    print params
+
     ec2_error = None
     cloud = models.Cloud.objects.get(cloud_type=params['cloud'])
     params['cloud'] = cloud
