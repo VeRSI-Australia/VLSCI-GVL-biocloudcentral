@@ -41,6 +41,7 @@ def api_get_clouds(request):
                 's3_conn_path': cloud.s3_conn_path,
                 }
         cloud_array.append(cloud_hash)
+    print str(cloud_array)
     result = HttpResponse(simplejson.dumps(cloud_array))
     return result
 
@@ -143,12 +144,32 @@ def api_launch(request):
                       security_groups=[params["sg_name"]])#,
                       #placement=params['placement'])
         ## TODO: Save usage file?
-        result_text = str(rs)
-
-
+        instance_id = rs.instances[0].id
+        public_dns = rs.instances[0].public_dns_name
+        image_id = rs.instances[0].image_id
+        result_dict = {
+                "instance_id": instance_id,
+                "public_dns": public_dns,
+                "image_id": image_id,
+                }
     else:
-        result_text = ec2_error
+        result_dict = {"error": ec2_error}
 
-    result = HttpResponse(simplejson.dumps(result_text))
+    result = HttpResponse(simplejson.dumps(result_dict))
     return result
 
+@csrf_exempt
+def api_instancestate(request):
+    access_key = request.GET.get('access_key')
+    secret_key = request.GET.get('secret_key')
+    cloud_type = request.GET.get('cloud_type')
+    instance_id = request.GET.get('instance_id')
+
+    if access_key == None or secret_key == None or cloud_type == None or instance_id == None:
+            return HttpResponse(simplejson.dumps({'error': 'Please provide correct parameters'}))
+
+    cloud = models.Cloud.objects.get(cloud_type=cloud_type)
+
+    ec2_conn = connect_ec2(access_key, secret_key, cloud)
+    state = instance_state(ec2_conn, instance_id)
+    return HttpResponse(simplejson.dumps(state), mimetype="application/json")
